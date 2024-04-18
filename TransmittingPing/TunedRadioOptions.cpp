@@ -34,8 +34,8 @@ const uint8_t addressBase[4] = "BAS";
 // Function to set up the radio for sending
 void setupSendRadio(RF24& radio, bool baseStation) {
     radio.begin();
-    radio.setPALevel(RF24_PA_HIGH);
-    radio.setDataRate(RF24_2MBPS);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.setDataRate(RF24_250KBPS);
     radio.setAddressWidth(addressWidth);
     if(baseStation) {
         radio.openWritingPipe(addressMobile); // address, used in the header, outgoing traffic contains this address (to whom?)
@@ -50,8 +50,8 @@ void setupSendRadio(RF24& radio, bool baseStation) {
 // Function to set up the radio for receiving
 void setupReceiveRadio(RF24& radio, bool baseStation) {
     radio.begin();
-    radio.setPALevel(RF24_PA_HIGH);
-    radio.setDataRate(RF24_2MBPS);
+    radio.setPALevel(RF24_PA_LOW);
+    radio.setDataRate(RF24_250KBPS);
     radio.setAddressWidth(addressWidth);
     if(baseStation) {
         radio.openReadingPipe(1, addressBase); // address of the listening pipe which will be opened (our address?)
