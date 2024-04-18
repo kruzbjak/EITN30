@@ -126,7 +126,7 @@ void sendData(RF24& radio, int tun_fd) {
             if(cap > 31) {
                 cap = 31;
             }
-            for(int i = 0; i < 31; ++i) {
+            for(int i = 0; i < cap; ++i) {
                 currentMsg[i+1] = buffer[index+i];
             }
             if(!radio.write(currentMsg, cap+1)) {
@@ -178,7 +178,6 @@ void receiveData(RF24& radio, int tun_fd) {
                 max = seq;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 

@@ -130,7 +130,7 @@ void sendData(RF24& radio, int tun_fd) {
             if(cap > 31) {
                 cap = 31;
             }
-            for(int i = 0; i < 31; ++i) {
+            for(int i = 0; i < cap; ++i) {
                 currentMsg[i+1] = buffer[index+i];
             }
             if(!radio.write(currentMsg, cap+1)) {
@@ -161,6 +161,7 @@ void receiveData(RF24& radio, int tun_fd) {
                     if(!process_received_packet(buffer, (max+1)*31, &actualSize)) {
                         readingMessage = false;
                         uint8_t buffer[BUFFER_SIZE] = {}; // reset the values of the buffer to 0;
+                        max = 0;
                         continue;
                     }
                     ssize_t bytes_written = write(tun_fd, buffer, actualSize);
@@ -169,6 +170,7 @@ void receiveData(RF24& radio, int tun_fd) {
                     }
                     readingMessage = false;
                     uint8_t buffer[BUFFER_SIZE] = {};
+                    max = 0;
                     continue;
                 } else {             // we got payload with seq num = 0 while not reading message => first fragment of ip packet
                     readingMessage = true;
@@ -182,7 +184,6 @@ void receiveData(RF24& radio, int tun_fd) {
                 max = seq;
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
