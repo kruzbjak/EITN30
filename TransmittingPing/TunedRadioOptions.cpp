@@ -37,6 +37,7 @@ void setupSendRadio(RF24& radio, bool baseStation) {
     radio.setPALevel(RF24_PA_LOW);
     radio.setDataRate(RF24_2MBPS);
     radio.setAddressWidth(addressWidth);
+    radio.setAutoAck(false);
     if(baseStation) {
         radio.openWritingPipe(addressMobile); // address, used in the header, outgoing traffic contains this address (to whom?)
         radio.setChannel(76);
@@ -53,6 +54,7 @@ void setupReceiveRadio(RF24& radio, bool baseStation) {
     radio.setPALevel(RF24_PA_LOW);
     radio.setDataRate(RF24_2MBPS);
     radio.setAddressWidth(addressWidth);
+    radio.setAutoAck(false);
     if(baseStation) {
         radio.openReadingPipe(1, addressBase); // address of the listening pipe which will be opened (our address?)
         radio.setChannel(100);
