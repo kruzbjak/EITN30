@@ -35,12 +35,15 @@ const uint8_t addressBase[4] = "BAS";
 void setupSendRadio(RF24& radio, bool baseStation) {
     radio.begin();
     radio.setPALevel(RF24_PA_LOW);
-    radio.setDataRate(RF24_250KBPS);
+    radio.setDataRate(RF24_2MBPS);
     radio.setAddressWidth(addressWidth);
+    //radio.setAutoAck(false);
     if(baseStation) {
         radio.openWritingPipe(addressMobile); // address, used in the header, outgoing traffic contains this address (to whom?)
+        radio.setChannel(76);
     } else {
-        radio.openWritingPipe(addressBase);  
+        radio.openWritingPipe(addressBase);
+        radio.setChannel(100);
     }
     
 }
@@ -49,12 +52,15 @@ void setupSendRadio(RF24& radio, bool baseStation) {
 void setupReceiveRadio(RF24& radio, bool baseStation) {
     radio.begin();
     radio.setPALevel(RF24_PA_LOW);
-    radio.setDataRate(RF24_250KBPS);
+    radio.setDataRate(RF24_2MBPS);
     radio.setAddressWidth(addressWidth);
+    //radio.setAutoAck(false);
     if(baseStation) {
         radio.openReadingPipe(1, addressBase); // address of the listening pipe which will be opened (our address?)
+        radio.setChannel(100);
     } else {
         radio.openReadingPipe(1, addressMobile);
+        radio.setChannel(76);
     }
     radio.startListening();
 }
@@ -157,6 +163,7 @@ void receiveData(RF24& radio, int tun_fd) {
                     if(!process_received_packet(buffer, (max+1)*31, &actualSize)) {
                         readingMessage = false;
                         uint8_t buffer[BUFFER_SIZE] = {}; // reset the values of the buffer to 0;
+                        max = 0;
                         continue;
                     }
                     ssize_t bytes_written = write(tun_fd, buffer, actualSize);
@@ -165,6 +172,7 @@ void receiveData(RF24& radio, int tun_fd) {
                     }
                     readingMessage = false;
                     uint8_t buffer[BUFFER_SIZE] = {};
+                    max = 0;
                     continue;
                 } else {             // we got payload with seq num = 0 while not reading message => first fragment of ip packet
                     readingMessage = true;
