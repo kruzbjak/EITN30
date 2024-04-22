@@ -33,6 +33,7 @@ const uint8_t addressWidth = 3;
 const uint8_t addressMobile[4] = "MOB";
 const uint8_t addressBase[4] = "BAS";
 
+// variables for some "statistics"
 int hadToResend = 0;
 int allSent = 0;
 
@@ -70,6 +71,7 @@ void setupReceiveRadio(RF24& radio, bool baseStation) {
     radio.startListening();
 }
 
+// function that checks, if the given packet_data form a proper ip packet
 bool process_received_packet(const uint8_t* packet_data, ssize_t packet_size) {
     try {
         // Parse the raw packet data
@@ -95,7 +97,6 @@ bool process_received_packet(const uint8_t* packet_data, ssize_t packet_size) {
 }
 
 // Function to send data
-//void sendData(RF24& radio, int tun_fd, int fragmentList[], std::atomic<bool>& sendingAltBool, std::atomic<bool>& receivingAltBool) {
 void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool) {
     uint8_t buffer[BUFFER_SIZE];
     uint8_t currentMsg[32];
@@ -114,19 +115,21 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
         
         std::cout << "Sending ip packet from interface!" << std::endl;
 
+        // calculate how many fragments will be needed to transfer the ip packet (sent in the first msg)
         uint8_t fragmentsToSend = static_cast<uint8_t>(std::ceil(static_cast<double>(bytes_read) / 31.0));
-        allSent += fragmentsToSend;
+        allSent += fragmentsToSend + 1;     //+1 for the start message, which is always sent
 
         // first we send the start msg:
         uint8_t startMsg[4];
-        startMsg[0] = sendingAltBool ? 0x40 : 0;
-        startMsg[1] = fragmentsToSend;
+        startMsg[0] = sendingAltBool ? 0x40 : 0;    // first byte is header, it is either 01000000 or 00000000, first bit = 0 => data, last 6 bits = 0 => seq number
+        startMsg[1] = fragmentsToSend;              // second byte is number of fragments of the ip packet being sent
         uint16_t tmpNum = static_cast<uint16_t>(bytes_read);
+        // third and fourth bytes contain the number represening the size of the whole ip packet in bytes (as interface mtu = 1500) two bytes is enough (2^16...)
         startMsg[2] = tmpNum >> 8;    // we want the more significant byte here
         startMsg[3] = tmpNum & 0xFF;  // it is the same as doing = tmpNum, as we want the least significant byte, but this is clearer
         radio.write(startMsg, 4);
 
-        // then we send the data:
+        // then we send the actual data:
         uint8_t seq = 1;
         int index = 0;
         for(; index < bytes_read; ++seq, index+=31) {
@@ -143,18 +146,20 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
                 std::cerr << "Failed to send part of the ip packet (fragment)." << std::endl;
             }
         }
-        // after sending the whole ip packet once, we check and try again, untill all the acknowledgements have been received
+        // after sending the whole ip packet once, we check and if needed try again, untill all the acknowledgements have been received
         bool someAckNotReceived = true;
         // here we could implement the max number of tries to resend
         while (someAckNotReceived) {
-            // lets wait for one millisecond, to catch up on acknowledgements
+            // lets wait for one millisecond, to catch up on acknowledgements ... the time could be tweaked (1ms worked pretty well in my ping tests)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             someAckNotReceived = false;
+            // first we check if the startMsg acknowledgement has been received
             if(fragmentList[0] != 1) {
                 radio.write(startMsg, 4);
                 someAckNotReceived = true;
                 ++hadToResend;
             }
+            // then we check all the data fragments
             for(int seq = 1; seq <= fragmentsToSend; ++seq) {
                 // means that an acknowledgement as not been received
                 if(fragmentList[seq] != 1) {
@@ -175,9 +180,9 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
                     ++hadToResend;
                 }
             }
-            std::cout << "Total ip packet fragments: " << allSent << ", had to resend: " << hadToResend << std::endl;
         }
-        std::cout << "All ackqs received, moving on!" << std::endl;
+        // after all the acknowledgements have been received we print out current stats
+        std::cout << "Total messages sent with radios: " << allSent << ", had to resend: " << hadToResend << std::endl;
         // after we have received all the acknowledgements, we can alternate the bool, thus the bit in the header for next ip packet
         sendingAltBool = !sendingAltBool;
         // and we have to reset the fragmentList array
@@ -188,30 +193,31 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
 }
 
 // Function to receive data
-//void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentList[], std::atomic<bool>& sendingAltBool, std::atomic<bool>& receivingAltBool) {
 void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentList[], bool& sendingAltBool) {
     uint8_t buffer[BUFFER_SIZE] = {};       // initialize with 0 value
     uint8_t currentMsg[32] = {0};
     
-    bool startReceived = false;
-    uint8_t fragmentsReceived = 0;
-    uint8_t fragmentsToReceive = 0;
-    uint16_t currentPacketSize = 0;
-    bool newFragments[64];
-    for (int i = 0; i < 64; ++i) {
+    bool startReceived = false;         // bool, which tells if we've received the startMsg for the ip packet
+    uint8_t fragmentsReceived = 0;      // current number of fragments received
+    uint8_t fragmentsToReceive = 0;     // number received in the startMsg, telling us how many data fragments will be received
+    uint16_t currentPacketSize = 0;     // number received in the startMsg, telling us how large is the ip packet (in bytes)
+    bool newFragments[64];              // array where store info, if the fragment with this seq number has already been received or not
+    for (int i = 0; i < 64; ++i) {      // initially we set it all to true meaning, they have not yet been received (they are new)
         newFragments[i] = true;
     }
 
-    bool receivingAltBool = true;
+    bool receivingAltBool = true;       // bool for the alternating bit in our headers (to sync with other station...)
 
+    // the main receiving loop
     while (true) {
+        // we wait for a message, and after it arrives, we read it
         if (radioReceive.available()) {
             radioReceive.read(&currentMsg, 32);
             // the first byte is the header
             uint8_t header = currentMsg[0];
             // second most significant bit is the alternating bit between ip packets, all fragments of the packet share same bit
             bool receivedAltBool = (header & 0x40) != 0;    // if the second most significant bit is 1 -> true
-            std::cout << "Received:  most significant bit = " << (header & 0x80) << "; second most = " << (header & 0x40) << "; seq = " << (header & 0x3F) << std::endl;
+            // for debugging: std::cout << "Received:  most significant bit = " << (header & 0x80) << "; second most = " << (header & 0x40) << "; seq = " << (header & 0x3F) << std::endl;
             // if the most significant bit is 1 -> it is acknowledgement
             if((header & 0x80) != 0) {
                 // this should theoretically not happen
@@ -236,6 +242,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             uint8_t seq = header & 0x3F;    // get the sequence number
             // seq == 0 means, a first msg before this ip packet, containing the amount of fragments that should be received and the actual ip packet size
             if(seq == 0) {
+                // if we've already received the start msg, no need to set the values again... (possible to receive multiple times, if ack lost)
                 if (!startReceived) {
                     startReceived = true;
                     fragmentsToReceive = currentMsg[1];
@@ -267,7 +274,6 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                     } else {
                         perror("Received data are not of an IP packet");
                     }
-                    std::cout << std::endl;
                     // then we reset all the variables
                     uint8_t buffer[BUFFER_SIZE] = {}; // reset the values of the buffer to 0;
                     startReceived = false;
@@ -390,10 +396,10 @@ int main(int argc, char** argv) {
     }
     // ------------------------------------------------------------------------------------------------------
     
-    int fragmentList[64] = {};
-    //std::atomic<bool> sendingAltBool(true);
-    //std::atomic<bool> receivingAltBool(true);
+    // list, that will be shared between the threads, containing info, if an acknowledgement for the fragment has been received or not
+    int fragmentList[64] = {};      // size 64 is enough, as interface mtu is 1500 and 64*31 >> 1500
 
+    // bool shared between the threads, that contains info about the value of the second most significant bit in sent msgs, thus in received acks
     bool sendingAltBool = true;
 
     // Start sender and receiver threads
