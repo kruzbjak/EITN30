@@ -203,6 +203,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             uint8_t header = currentMsg[0];
             // second most significant bit is the alternating bit between ip packets, all fragments of the packet share same bit
             bool receivedAltBool = (header & 0x40) != 0;    // if the second most significant bit is 1 -> true
+            std::cout << "Received:  most significant bit = " << (header & 0x80) << "; second most = " << (header & 0x40) << "; seq = " << (header & 0x3F) << std::endl;
             // if the most significant bit is 1 -> it is acknowledgement
             if((header & 0x80) != 0) {
                 // this should theoretically not happen
@@ -216,7 +217,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             // if the most significant bit is 0 -> is data fragment -> first we send acknowledgement
             } else {
                 uint8_t ack = header | 0x80;     // change the most significant bit to 1 -> making it ack msg, rest of the header is the same
-                radioSend.write(&header, 1);
+                radioSend.write(&ack, 1);
                 // if received data fragment belongs to the previous ip packet -> we resend the ack, but we dont save the data again -> continue
                 if (receivedAltBool != receivingAltBool) {
                     continue;
@@ -308,7 +309,7 @@ int main(int argc, char** argv) {
     } else if (arg == "--base") {
         baseStation = true;
     } else {
-        std::cerr << "Invalid argument: " << arg << "; shouold be: [--mobile | --base]" << std::endl;
+        std::cerr << "Invalid argument: " << arg << "; should be: [--mobile | --base]" << std::endl;
         return 1;
     }
 
