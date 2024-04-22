@@ -33,6 +33,9 @@ const uint8_t addressWidth = 3;
 const uint8_t addressMobile[4] = "MOB";
 const uint8_t addressBase[4] = "BAS";
 
+int hadToResend = 0;
+int allSent = 0;
+
 // Function to set up the radio for sending
 void setupSendRadio(RF24& radio, bool baseStation) {
     radio.begin();
@@ -110,6 +113,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
         }
         
         uint8_t fragmentsToSend = static_cast<uint8_t>(std::ceil(static_cast<double>(bytes_read) / 31.0));
+        allSent += fragmentsToSend;
 
         // first we send the start msg:
         uint8_t startMsg[4];
@@ -145,6 +149,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
             if(fragmentList[0] != 1) {
                 radio.write(startMsg, 4);
                 someAckNotReceived = true;
+                ++hadToResend;
             }
             for(int seq = 1; seq <= fragmentsToSend; ++seq) {
                 // means that an acknowledgement as not been received
@@ -163,11 +168,17 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
                     if(!radio.write(currentMsg, cap+1)) {
                         std::cerr << "Failed to resend part of the ip packet (fragment)." << std::endl;
                     }
+                    ++hadToResend;
                 }
             }
+            std::cout << "Total ip packet fragments: " << allSent << ", had to resend: " << hadToResend << std::endl;
         }
         // after we have received all the acknowledgements, we can alternate the bool, thus the bit in the header for next ip packet
         sendingAltBool = !sendingAltBool;
+        // and we have to reset the fragmentList array
+        for(int i = 0; i < 64 ; ++i) {
+            fragmentList[i] = 0;
+        }
     }
 }
 
