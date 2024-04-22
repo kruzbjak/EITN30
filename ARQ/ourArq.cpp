@@ -147,6 +147,8 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
         bool someAckNotReceived = true;
         // here we could implement the max number of tries to resend
         while (someAckNotReceived) {
+            // lets wait for one millisecond, to catch up on acknowledgements
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             someAckNotReceived = false;
             if(fragmentList[0] != 1) {
                 radio.write(startMsg, 4);
@@ -223,6 +225,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 radioSend.write(&ack, 1);
                 // if received data fragment belongs to the previous ip packet -> we resend the ack, but we dont save the data again -> continue
                 if (receivedAltBool != receivingAltBool) {
+                    std::cout << "Data fragment belongs to previous ip packet" << std::endl;
                     continue;
                 }
             }
@@ -233,12 +236,14 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 startReceived = true;
                 fragmentsToReceive = currentMsg[1];
                 currentPacketSize = (currentMsg[2] << 8) | currentMsg[3];   // deserialization of the number (larger than one byte can contain)
+                std::cout << "We received header: fragments to receive = " << fragmentsToReceive << "; current packet size = " << currentPacketSize << std::endl; 
                 continue;
             }
 
             // we get here if we received a data packet and receivedAltBool = receivingAltBool + the seq number is not == 0
             // we check if the fragment with this sequence number has already been received
             if(newFragments[seq]) {
+                std::cout << "New fragment received: seq = " << seq << "; from fragments received = " << fragmentsReceived << std::endl; 
                 newFragments[seq] = false;
                 // if not we save the data, increment the number of packets received
                 int bufferIndex = (seq-1)*31;
