@@ -121,6 +121,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
         uint8_t startMsg[4];
         startMsg[0] = sendingAltBool ? 0x40 : 0;
         startMsg[1] = fragmentsToSend;
+        std::cout << "Fragments to send contains: " << startMsg[1] << std::endl;
         uint16_t tmpNum = static_cast<uint16_t>(bytes_read);
         startMsg[2] = tmpNum >> 8;    // we want the more significant byte here
         startMsg[3] = tmpNum & 0xFF;  // it is the same as doing = tmpNum, as we want the least significant byte, but this is clearer
@@ -234,6 +235,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             // seq == 0 means, a first msg before this ip packet, containing the amount of fragments that should be received and the actual ip packet size
             if(seq == 0) {
                 startReceived = true;
+                std::cout << "The currentMsg[1] contains: " << currentMsg[1] << std::endl;
                 fragmentsToReceive = currentMsg[1];
                 currentPacketSize = (currentMsg[2] << 8) | currentMsg[3];   // deserialization of the number (larger than one byte can contain)
                 std::cout << "We received header: fragments to receive = " << fragmentsToReceive << "; current packet size = " << currentPacketSize << std::endl; 
