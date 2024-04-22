@@ -256,7 +256,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 ++fragmentsReceived;
                 // if we've already received the start msg and if we got all the fragments needed
                 if(startReceived && fragmentsReceived == fragmentsToReceive) {
-                    receivedAltBool = !receivedAltBool;
+                    receivingAltBool = !receivingAltBool;
                     // first we check if the received fragments put together an actual ip packet
                     if(process_received_packet(buffer, currentPacketSize)) {
                         // send the data to interface
