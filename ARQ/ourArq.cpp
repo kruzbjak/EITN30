@@ -115,14 +115,12 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
         std::cout << "Sending ip packet from interface!" << std::endl;
 
         uint8_t fragmentsToSend = static_cast<uint8_t>(std::ceil(static_cast<double>(bytes_read) / 31.0));
-        std::cout << fragmentsToSend << std::endl;
         allSent += fragmentsToSend;
 
         // first we send the start msg:
         uint8_t startMsg[4];
         startMsg[0] = sendingAltBool ? 0x40 : 0;
         startMsg[1] = fragmentsToSend;
-        std::cout << "Fragments to send contains: " << startMsg[1] << std::endl;
         uint16_t tmpNum = static_cast<uint16_t>(bytes_read);
         startMsg[2] = tmpNum >> 8;    // we want the more significant byte here
         startMsg[3] = tmpNum & 0xFF;  // it is the same as doing = tmpNum, as we want the least significant byte, but this is clearer
@@ -199,7 +197,10 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
     uint8_t fragmentsReceived = 0;
     uint8_t fragmentsToReceive = 0;
     uint16_t currentPacketSize = 0;
-    bool newFragments[64] = {true};
+    bool newFragments[64];
+    for (int i = 0; i < 64; ++i) {
+        newFragments[i] = true;
+    }
 
     bool receivingAltBool = true;
 
@@ -235,18 +236,17 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             uint8_t seq = header & 0x3F;    // get the sequence number
             // seq == 0 means, a first msg before this ip packet, containing the amount of fragments that should be received and the actual ip packet size
             if(seq == 0) {
-                startReceived = true;
-                std::cout << "The currentMsg[1] contains: " << currentMsg[1] << std::endl;
-                fragmentsToReceive = currentMsg[1];
-                currentPacketSize = (currentMsg[2] << 8) | currentMsg[3];   // deserialization of the number (larger than one byte can contain)
-                std::cout << "We received header: fragments to receive = " << fragmentsToReceive << "; current packet size = " << currentPacketSize << std::endl; 
+                if (!startReceived) {
+                    startReceived = true;
+                    fragmentsToReceive = currentMsg[1];
+                    currentPacketSize = (currentMsg[2] << 8) | currentMsg[3];   // deserialization of the number (larger than one byte can contain)
+                }
                 continue;
             }
 
             // we get here if we received a data packet and receivedAltBool = receivingAltBool + the seq number is not == 0
             // we check if the fragment with this sequence number has already been received
             if(newFragments[seq]) {
-                std::cout << "New fragment received: seq = " << seq << "; from fragments received = " << fragmentsReceived << std::endl; 
                 newFragments[seq] = false;
                 // if not we save the data, increment the number of packets received
                 int bufferIndex = (seq-1)*31;
@@ -256,11 +256,9 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 ++fragmentsReceived;
                 // if we've already received the start msg and if we got all the fragments needed
                 if(startReceived && fragmentsReceived == fragmentsToReceive) {
-                    std::cout << "Start and all fragments received";
                     receivedAltBool = !receivedAltBool;
                     // first we check if the received fragments put together an actual ip packet
                     if(process_received_packet(buffer, currentPacketSize)) {
-                        std::cout << " and it is an ip packet yay!";
                         // send the data to interface
                         ssize_t bytes_written = write(tun_fd, buffer, currentPacketSize);
                         if (bytes_written < 0) {
@@ -272,11 +270,13 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                     std::cout << std::endl;
                     // then we reset all the variables
                     uint8_t buffer[BUFFER_SIZE] = {}; // reset the values of the buffer to 0;
-                    bool startReceived = false;
+                    startReceived = false;
                     fragmentsReceived = 0;
                     fragmentsToReceive = 0; // these two (toReceive and packetSize) may not need a reset, but it is good for debugging purposes
                     currentPacketSize = 0;
-                    bool newFragments[64] = {true};
+                    for (int i = 0; i < 64; ++i) {
+                        newFragments[i] = true;
+                    }
                 }
                 // if the start has not been received, or we don't have all the fragments, we just wait for them
             }
