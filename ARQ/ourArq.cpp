@@ -115,6 +115,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
         std::cout << "Sending ip packet from interface!" << std::endl;
 
         uint8_t fragmentsToSend = static_cast<uint8_t>(std::ceil(static_cast<double>(bytes_read) / 31.0));
+        std::cout << fragmentsToSend << std::endl;
         allSent += fragmentsToSend;
 
         // first we send the start msg:
