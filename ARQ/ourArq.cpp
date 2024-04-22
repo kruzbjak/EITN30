@@ -42,7 +42,7 @@ void setupSendRadio(RF24& radio, bool baseStation) {
     radio.setPALevel(RF24_PA_LOW);
     radio.setDataRate(RF24_2MBPS);
     radio.setAddressWidth(addressWidth);
-    //radio.setAutoAck(false);
+    radio.setAutoAck(false);
     if(baseStation) {
         radio.openWritingPipe(addressMobile); // address, used in the header, outgoing traffic contains this address (to whom?)
         radio.setChannel(76);
@@ -59,7 +59,7 @@ void setupReceiveRadio(RF24& radio, bool baseStation) {
     radio.setPALevel(RF24_PA_LOW);
     radio.setDataRate(RF24_2MBPS);
     radio.setAddressWidth(addressWidth);
-    //radio.setAutoAck(false);
+    radio.setAutoAck(false);
     if(baseStation) {
         radio.openReadingPipe(1, addressBase); // address of the listening pipe which will be opened (our address?)
         radio.setChannel(100);
@@ -112,6 +112,8 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
             continue;
         }
         
+        std::cout << "Sending ip packet from interface!" << std::endl;
+
         uint8_t fragmentsToSend = static_cast<uint8_t>(std::ceil(static_cast<double>(bytes_read) / 31.0));
         allSent += fragmentsToSend;
 
@@ -173,6 +175,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
             }
             std::cout << "Total ip packet fragments: " << allSent << ", had to resend: " << hadToResend << std::endl;
         }
+        std::cout << "All ackqs received, moving on!" << std::endl;
         // after we have received all the acknowledgements, we can alternate the bool, thus the bit in the header for next ip packet
         sendingAltBool = !sendingAltBool;
         // and we have to reset the fragmentList array
@@ -245,9 +248,11 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 ++fragmentsReceived;
                 // if we've already received the start msg and if we got all the fragments needed
                 if(startReceived && fragmentsReceived == fragmentsToReceive) {
+                    std::cout << "Start and all fragments received";
                     receivedAltBool = !receivedAltBool;
                     // first we check if the received fragments put together an actual ip packet
                     if(process_received_packet(buffer, currentPacketSize)) {
+                        std::cout << " and it is an ip packet yay!";
                         // send the data to interface
                         ssize_t bytes_written = write(tun_fd, buffer, currentPacketSize);
                         if (bytes_written < 0) {
@@ -256,6 +261,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                     } else {
                         perror("Received data are not of an IP packet");
                     }
+                    std::cout << std::endl;
                     // then we reset all the variables
                     uint8_t buffer[BUFFER_SIZE] = {}; // reset the values of the buffer to 0;
                     bool startReceived = false;
