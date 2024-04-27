@@ -113,7 +113,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
             continue;
         }
         
-        std::cout << "Sending ip packet from interface!" << std::endl;
+        //std::cout << "Sending ip packet from interface!" << std::endl;
 
         // calculate how many fragments will be needed to transfer the ip packet (sent in the first msg)
         uint8_t fragmentsToSend = static_cast<uint8_t>(std::ceil(static_cast<double>(bytes_read) / 31.0));
@@ -182,7 +182,7 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
             }
         }
         // after all the acknowledgements have been received we print out current stats
-        std::cout << "Total messages sent with radios: " << allSent << ", had to resend: " << hadToResend << std::endl;
+        //std::cout << "Total messages sent with radios: " << allSent << ", had to resend: " << hadToResend << std::endl;
         // after we have received all the acknowledgements, we can alternate the bool, thus the bit in the header for next ip packet
         sendingAltBool = !sendingAltBool;
         // and we have to reset the fragmentList array
@@ -234,7 +234,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 radioSend.write(&ack, 1);
                 // if received data fragment belongs to the previous ip packet -> we resend the ack, but we dont save the data again -> continue
                 if (receivedAltBool != receivingAltBool) {
-                    std::cout << "Data fragment belongs to previous ip packet" << std::endl;
+                    //std::cout << "Data fragment belongs to previous ip packet" << std::endl;
                     continue;
                 }
             }
