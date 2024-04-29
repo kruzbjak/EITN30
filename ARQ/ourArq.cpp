@@ -268,7 +268,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                     std::cout << "[RECEIVING FUNCTION]: Sending: most significant bit = " << (ack & 0x80) << "; second most = " << (ack & 0x40) << "; seq = " << (ack & 0x3F) << std::endl;
                 
                 // we will send the startMsg acknowledgement, only if the values in the msg make sense
-                if(header & 0x3F != 0) {
+                if((header & 0x3F) != 0) {
                     radioSend.write(&ack, 1);
                 }
                 
