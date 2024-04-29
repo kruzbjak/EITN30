@@ -306,12 +306,8 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 uint8_t ack = header | 0x80;
                 radioSend.write(&ack, 1);
 
-                continue;
-            }
-
-            // we get here if we received a data packet and receivedAltBool = receivingAltBool + the seq number is not == 0
-            // we check if the fragment with this sequence number has already been received
-            if(newFragments[seq]) {
+            // if the received fragment is not the starting msg we check if the fragment with this sequence number has already been received
+            } else if(newFragments[seq]) {
 
                 if(DEBUGGING)
                     std::cout << "[RECEIVING FUNCTION]: The received message is a new data fragment" << std::endl;
@@ -323,50 +319,50 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                     buffer[bufferIndex+i] = currentMsg[i+1];
                 }
                 ++fragmentsReceived;
-                // if we've already received the start msg and if we got all the fragments needed
-                if(startReceived && fragmentsReceived == fragmentsToReceive) {
+            } else {
+                if(DEBUGGING)
+                    std::cout << "[RECEIVING FUNCTION]: Received data fragment, which have already been received." << std::endl;
+                // if the fragment has already been received we don't need to do anything, the ack has already been resent
+                continue;
+            }
 
-                    if(DEBUGGING)
-                        std::cout << "[RECEIVING FUNCTION]: Received last fragment, changing receivingAltBool from: " << receivingAltBool;
+            // if we've already received the start msg and if we got all the fragments needed
+            if(startReceived && fragmentsReceived == fragmentsToReceive) {
+                if(DEBUGGING)
+                    std::cout << "[RECEIVING FUNCTION]: Received last fragment, changing receivingAltBool from: " << receivingAltBool;
 
-                    receivingAltBool = !receivingAltBool;
+                receivingAltBool = !receivingAltBool;
+                
+                if(DEBUGGING)
+                    std::cout << "; to: " << receivingAltBool << std::endl;
+
+                // first we check if the received fragments put together an actual ip packet
+                if(process_received_packet(buffer, currentPacketSize)) {
                     
                     if(DEBUGGING)
-                        std::cout << "; to: " << receivingAltBool << std::endl;
-
-                    // first we check if the received fragments put together an actual ip packet
-                    if(process_received_packet(buffer, currentPacketSize)) {
-                        
-                        if(DEBUGGING)
-                            std::cout << "[RECEIVING FUNCTION]: Received data form an ip packet." << std::endl;
-                        
-                        // send the data to interface
-                        ssize_t bytes_written = write(tun_fd, buffer, currentPacketSize);
-                        if (bytes_written < 0) {
-                            perror("Failed to write to TUN device");
-                        }
-                    } else {
-                        perror("Received data are not of an IP packet");
+                        std::cout << "[RECEIVING FUNCTION]: Received data form an ip packet." << std::endl;
+                    
+                    // send the data to interface
+                    ssize_t bytes_written = write(tun_fd, buffer, currentPacketSize);
+                    if (bytes_written < 0) {
+                        perror("Failed to write to TUN device");
                     }
-                    // then we reset all the variables
-                    for(int i = 0; i < BUFFER_SIZE; ++i) {
-                        buffer[i] = 0;
-                    }
-                    startReceived = false;
-                    fragmentsReceived = 0;
-                    fragmentsToReceive = 0; // these two (toReceive and packetSize) may not need a reset, but it is good for debugging purposes
-                    currentPacketSize = 0;
-                    for (int i = 0; i < 64; ++i) {
-                        newFragments[i] = true;
-                    }
+                } else {
+                    perror("Received data are not of an IP packet");
                 }
-                // if the start has not been received, or we don't have all the fragments, we just wait for them
-            } else if(DEBUGGING) {
-
-                std::cout << "[RECEIVING FUNCTION]: Received data fragment, which have already been received." << std::endl;
-
+                // then we reset all the variables
+                for(int i = 0; i < BUFFER_SIZE; ++i) {
+                    buffer[i] = 0;
+                }
+                startReceived = false;
+                fragmentsReceived = 0;
+                fragmentsToReceive = 0; // these two (toReceive and packetSize) may not need a reset, but it is good for debugging purposes
+                currentPacketSize = 0;
+                for (int i = 0; i < 64; ++i) {
+                    newFragments[i] = true;
+                }
             }
-            // if the fragment has already been received we don't need to do anything, the ack has already been resent
+            // if the start has not been received, or we don't have all the fragments, we just wait for them -> new loop
         }
     }
 }
