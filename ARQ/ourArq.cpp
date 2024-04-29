@@ -25,7 +25,7 @@
 #define BUFFER_SIZE 2048
 // --------------------------------------------------------------------------------------------------
 
-#define DEBUGGING false
+#define DEBUGGING true
 
 // the interface is set up by the program, there should not be one with the same name already existing
 // because the program sets up the interface, it must be executed as sudo
@@ -169,8 +169,12 @@ void sendData(RF24& radio, int tun_fd, int fragmentList[], bool& sendingAltBool)
                 someAckNotReceived = true;
                 ++hadToResend;
 
-                if(DEBUGGING)
-                    std::cout << "[SENDING FUNCTION]: Had to resend the starting msg" << std::endl;
+                if(DEBUGGING) {
+                    uint16_t tmpCurrentPacketSize = (startMsg[2] << 8) | startMsg[3];
+                    std::cout << "[SENDING FUNCTION]: Had to resend the starting msg: fragments = " << static_cast<int>(startMsg[1]) << "; bytes = " << tmpCurrentPacketSize;
+                    std::cout << "; actual bytes read = " << bytes_read << std::endl;
+                }
+                    
             
             }
             // then we check all the data fragments
