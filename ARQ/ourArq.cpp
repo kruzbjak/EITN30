@@ -278,19 +278,19 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             // seq == 0 means, a first msg before this ip packet, containing the amount of fragments that should be received and the actual ip packet size
             if(seq == 0) {
                 // if we've already received the start msg, no need to set the values again... (possible to receive multiple times, if ack lost)
-                if (!startReceived) {
+                //if (!startReceived) {
                     
                     if(DEBUGGING)
-                        std::cout << "[RECEIVING FUNCTION]: Received a new starting message." << std::endl;
+                        std::cout << "[RECEIVING FUNCTION]: Received a starting message." << std::endl;
                     
                     startReceived = true;
                     fragmentsToReceive = currentMsg[1];
                     currentPacketSize = (currentMsg[2] << 8) | currentMsg[3];   // deserialization of the number (larger than one byte can contain)
-                } else if(DEBUGGING) {
+                //} else if(DEBUGGING) {
                 
-                    std::cout << "[RECEIVING FUNCTION]: Received starting message, which have already been received." << std::endl;
+                    //std::cout << "[RECEIVING FUNCTION]: Received starting message, which have already been received." << std::endl;
                 
-                }
+                //}
                 continue;
             }
 
