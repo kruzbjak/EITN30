@@ -25,7 +25,7 @@
 #define BUFFER_SIZE 2048
 // --------------------------------------------------------------------------------------------------
 
-#define DEBUGGING true
+#define DEBUGGING false
 
 // the interface is set up by the program, there should not be one with the same name already existing
 // because the program sets up the interface, it must be executed as sudo
@@ -271,18 +271,17 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 if(DEBUGGING)
                     std::cout << "[RECEIVING FUNCTION]: Sending: most significant bit = " << (ack & 0x80) << "; second most = " << (ack & 0x40) << "; seq = " << (ack & 0x3F) << std::endl;
                 
-                // we will send the startMsg acknowledgement, only if the values in the msg make sense
-                if((header & 0x3F) != 0) {
-                    radioSend.write(&ack, 1);
-                }
-                
                 // if received data fragment belongs to the previous ip packet -> we resend the ack, but we dont save the data again -> continue
                 if (receivedAltBool != receivingAltBool) {
-                    
+                    // we always send the ack again
+                    radioSend.write(&ack, 1);
                     if(DEBUGGING)
                         std::cout << "[RECEIVING FUNCTION]: Data fragment belongs to previous ip packet" << std::endl;
                     
                     continue;
+                // if belongs to current ip packet -> we will send the startMsg acknowledgement, only if the values in the msg make sense (not now)
+                } else if((header & 0x3F) != 0) {
+                    radioSend.write(&ack, 1);
                 }
             }
             // we get here only if it is data packet and the receivedAltBool == receivingAltBool
