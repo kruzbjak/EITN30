@@ -25,7 +25,7 @@
 #define BUFFER_SIZE 2048
 // --------------------------------------------------------------------------------------------------
 
-#define DEBUGGING true
+#define DEBUGGING false
 
 // the interface is set up by the program, there should not be one with the same name already existing
 // because the program sets up the interface, it must be executed as sudo
@@ -248,7 +248,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             // second most significant bit is the alternating bit between ip packets, all fragments of the packet share same bit
             bool receivedAltBool = (header & 0x40) != 0;    // if the second most significant bit is 1 -> true
             uint8_t seq = header & 0x3F;    // get the sequence number
-            bool isAck = header & 0x80 != 0;            // if the most significant bit is 1 -> it is acknowledgement
+            bool isAck = (header & 0x80) != 0;              // if the most significant bit is 1 -> it is acknowledgement
             // what if the message is corrupted (undetected by crc and seq is out of boundaries)
             
             if(DEBUGGING)
