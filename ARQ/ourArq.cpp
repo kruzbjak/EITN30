@@ -281,11 +281,15 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 if (!startReceived) {
                     
                     if(DEBUGGING)
-                        std::cout << "[RECEIVING FUNCTION]: Received starting message, which have already been received." << std::endl;
-
+                        std::cout << "[RECEIVING FUNCTION]: Received a new starting message." << std::endl;
+                    
                     startReceived = true;
                     fragmentsToReceive = currentMsg[1];
                     currentPacketSize = (currentMsg[2] << 8) | currentMsg[3];   // deserialization of the number (larger than one byte can contain)
+                } else if(DEBUGGING) {
+                
+                    std::cout << "[RECEIVING FUNCTION]: Received starting message, which have already been received." << std::endl;
+                
                 }
                 continue;
             }
@@ -330,7 +334,9 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                         perror("Received data are not of an IP packet");
                     }
                     // then we reset all the variables
-                    uint8_t buffer[BUFFER_SIZE] = {}; // reset the values of the buffer to 0;
+                    for(int i = 0; i < BUFFER_SIZE; ++i) {
+                        buffer[i] = 0;
+                    }
                     startReceived = false;
                     fragmentsReceived = 0;
                     fragmentsToReceive = 0; // these two (toReceive and packetSize) may not need a reset, but it is good for debugging purposes
@@ -341,7 +347,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                 }
                 // if the start has not been received, or we don't have all the fragments, we just wait for them
             } else if(DEBUGGING) {
-                
+
                 std::cout << "[RECEIVING FUNCTION]: Received data fragment, which have already been received." << std::endl;
 
             }
