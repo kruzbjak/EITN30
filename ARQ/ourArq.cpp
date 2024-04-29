@@ -25,7 +25,7 @@
 #define BUFFER_SIZE 2048
 // --------------------------------------------------------------------------------------------------
 
-#define DEBUGGING false
+#define DEBUGGING true
 
 // the interface is set up by the program, there should not be one with the same name already existing
 // because the program sets up the interface, it must be executed as sudo
@@ -247,12 +247,21 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
             uint8_t header = currentMsg[0];
             // second most significant bit is the alternating bit between ip packets, all fragments of the packet share same bit
             bool receivedAltBool = (header & 0x40) != 0;    // if the second most significant bit is 1 -> true
+            uint8_t seq = header & 0x3F;    // get the sequence number
+            bool isAck = header & 0x80 != 0;            // if the most significant bit is 1 -> it is acknowledgement
+            // what if the message is corrupted (undetected by crc and seq is out of boundaries)
             
             if(DEBUGGING)
                 std::cout << "[RECEIVING FUNCTION]: Received: most significant bit = " << (header & 0x80) << "; second most = " << (header & 0x40) << "; seq = " << (header & 0x3F) << std::endl;
             
-            // if the most significant bit is 1 -> it is acknowledgement
-            if((header & 0x80) != 0) {
+            if(seq > 62) {
+                if(DEBUGGING)
+                    std::cout << "[RECEIVING FUNCTION]: Received seq number corrupted." << std::endl;
+                // if ack we don't want to change anything, when data, we don't want to send any ack either 
+                continue;                
+            }
+
+            if(isAck) {
                 // this should theoretically not happen
                 if(receivedAltBool != sendingAltBool) {
 
@@ -261,7 +270,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
 
                 // means that we received ack to message that we've sent (that it was received)
                 } else {
-                    fragmentList[header & 0x3F] = 1;    // we change the value on the index of seq number in the list to 1, means ack received
+                    fragmentList[seq] = 1;    // we change the value on the index of seq number in the list to 1, means ack received
                 }
                 continue;
             // if the most significant bit is 0 -> is data fragment -> first we send acknowledgement
@@ -280,12 +289,11 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
                     
                     continue;
                 // if belongs to current ip packet -> we will send the startMsg acknowledgement, only if the values in the msg make sense (not now)
-                } else if((header & 0x3F) != 0) {
+                } else if(seq != 0) {
                     radioSend.write(&ack, 1);
                 }
             }
             // we get here only if it is data packet and the receivedAltBool == receivingAltBool
-            uint8_t seq = header & 0x3F;    // get the sequence number
             // seq == 0 means, a first msg before this ip packet, containing the amount of fragments that should be received and the actual ip packet size
             if(seq == 0) {
                 if(DEBUGGING)
@@ -328,6 +336,24 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int fragmentLi
 
             // if we've already received the start msg and if we got all the fragments needed
             if(startReceived && fragmentsReceived == fragmentsToReceive) {
+
+                // first we have to check if all the received messages were from the range we want
+                uint8_t corruptedSeqs = 0;
+                for(int i = 1; i <= fragmentsToReceive; ++i) {      // we should not need to check start (index 0) as we have startReceived as true
+                    if(newFragments[i]) {
+                        ++corruptedSeqs;
+                    }
+                }
+                // if there are any corrupted seqs, we can't count them as ones from the toReceive group ... we have to listen for more
+                if(corruptedSeqs != 0) {
+                    fragmentsReceived -= corruptedSeqs;
+
+                    if(DEBUGGING)
+                        std::cout << "[RECEIVING FUNCTION]: There were " << corruptedSeqs << " fragments with corrupted sequence number." << std::endl;
+
+                    continue;
+                }
+
                 if(DEBUGGING)
                     std::cout << "[RECEIVING FUNCTION]: Received last fragment, changing receivingAltBool from: " << receivingAltBool;
 
