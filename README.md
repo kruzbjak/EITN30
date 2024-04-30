@@ -3,7 +3,9 @@
 This is a repo for a project given in Internet Inside (EITN30) course at LTH.  
 We set our goal to replace the built-in ARQ mechanism with our own, while using both of the duplex links.  
 Instead of the built-in stop-and-wait ARQ, this approach allows us to not use timeouts almost completely.  
-Our solution is found in the ARQ directory, in ourArq.cpp file.  
+Our solutions is found in the ARQ directory.
+In ourArq.cpp the implementation uses positive acknowledgements sending an acknowledgement for every data fragment which is received.
+In negAckArq.cpp the implementation useses negative acknowledgements sending an acknowledgement for data fragments which have not yet been received.  
 
 ## Compiling
 
@@ -39,17 +41,31 @@ sudo ./executable --base
 ```
 
 For running **ARQ** (here both libraries mandatory).
-The same requirements as for *TransmittingPing* apply.
+The same requirements as for *TransmittingPing* apply for both **ourArq.cpp** and **negAckArq.cpp**.
 
 ## Testing
 
-For testing the tcpdump tool can be used,
+For testing/debugging the *tcpdump* tool can be used,
 for example running:
 ```bash
 sudo tcpdump --interface any port not 22
 # OR
 sudo tcpdump --interface tun0
 ```
+For testing the throughput, *iperf3* can be used, for example:
+```bash
+# on one of the stations (maybe the base station)
+iperf3 -s
+# on the second station
+iperf3 -c 192.168.2.1 -u -b 300K -l 1000 -t 60
+# where we specify the ip address of the server, -u for udp, -b 300K specifies bitrate for sending, -l packet size and -t seconds of transmission
+```
+For testing the latency, *ping* with additional options can be used, for example:
+```bash
+ping -c 100 -s 1024 192.168.2.1
+# where we specify number of requests sent (-c 100), size of the payload (-s 1024) [instead of default 56] and the target ip address
+```
+
 ## Links
 
 [rf24](https://nrf24.github.io/RF24/)  
