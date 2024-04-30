@@ -254,13 +254,6 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int negAckArra
             
             if(DEBUGGING)
                 std::cout << "[RECEIVING FUNCTION]: Received: most significant bit = " << (header & 0x80) << "; second most = " << (header & 0x40) << "; seq = " << (header & 0x3F) << std::endl;
-            
-            if(seq > 62) {
-                if(DEBUGGING)
-                    std::cout << "[RECEIVING FUNCTION]: Received seq number corrupted." << std::endl;
-                // if ack we don't want to change anything, when data, we don't want to send any ack either 
-                continue;                
-            }
 
             // in this implementation acks are negative, meaning, that if we receive and acknowledgement, we must resend the fragment
             if(isAck) {
@@ -272,7 +265,7 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int negAckArra
                         std::cerr << "[RECEIVING FUNCTION]: Received acknowledgement to previous (old) ip packet" << std::endl;
 
                 // means that we received neg-ack to message that we've sent previously -> have to resend (in sending thread)
-                } else if(seq == 64) {
+                } else if(seq == 63) {
                     // means that we've received the msg saying that all packets have been received on the other side
                     packetReceivedOnOtherSide = true;
                 } else {
