@@ -25,7 +25,7 @@
 #define BUFFER_SIZE 2048
 // --------------------------------------------------------------------------------------------------
 
-#define DEBUGGING false
+#define DEBUGGING true
 
 // the interface is set up by the program, there should not be one with the same name already existing
 // because the program sets up the interface, it must be executed as sudo
@@ -291,12 +291,11 @@ void receiveData(RF24& radioReceive, RF24& radioSend, int tun_fd, int negAckArra
                     
                     continue;
                 }
-                fragmentStatus[seq] = 1;
             }
             // we get here only if it is data packet and the receivedAltBool == receivingAltBool
             // seq == 0 means, a first msg before this ip packet, containing the amount of fragments that should be received and the actual ip packet size
             if(seq == 0) {
-                
+                fragmentStatus[seq] = 1;
                  if(DEBUGGING)
                     std::cout << "[RECEIVING FUNCTION]: Received a starting message." << std::endl;
                
