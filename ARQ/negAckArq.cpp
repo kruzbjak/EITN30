@@ -25,7 +25,7 @@
 #define BUFFER_SIZE 2048
 // --------------------------------------------------------------------------------------------------
 
-#define DEBUGGING true
+#define DEBUGGING false
 
 // the interface is set up by the program, there should not be one with the same name already existing
 // because the program sets up the interface, it must be executed as sudo
